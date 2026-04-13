@@ -23,92 +23,107 @@
 
 ## 4. 기본 코드 (Python)
 
-### 구간 합 세그먼트 트리
+### 함수형 (전역 배열, 코테 권장)
 ```python
-class SegmentTree:
-    def __init__(self, arr):
-        self.n = len(arr)
-        self.tree = [0] * (4 * self.n)
-        self.build(arr, 1, 0, self.n - 1)
+import sys
+sys.setrecursionlimit(100000)
 
-    def build(self, arr, node, start, end):
-        if start == end:
-            self.tree[node] = arr[start]
-        else:
-            mid = (start + end) // 2
-            self.build(arr, node*2,   start, mid)
-            self.build(arr, node*2+1, mid+1, end)
-            self.tree[node] = self.tree[node*2] + self.tree[node*2+1]
+N = 0
+tree = []
 
-    def update(self, node, start, end, idx, val):
-        if start == end:
-            self.tree[node] = val
-        else:
-            mid = (start + end) // 2
-            if idx <= mid:
-                self.update(node*2,   start, mid,   idx, val)
-            else:
-                self.update(node*2+1, mid+1, end,   idx, val)
-            self.tree[node] = self.tree[node*2] + self.tree[node*2+1]
-
-    def query(self, node, start, end, left, right):
-        if right < start or end < left:   # 범위 벗어남
-            return 0
-        if left <= start and end <= right:  # 완전히 포함
-            return self.tree[node]
+def build(arr, node, start, end):
+    if start == end:
+        tree[node] = arr[start]
+    else:
         mid = (start + end) // 2
-        return (self.query(node*2,   start, mid,   left, right) +
-                self.query(node*2+1, mid+1, end,   left, right))
+        build(arr, node*2,   start, mid)
+        build(arr, node*2+1, mid+1, end)
+        tree[node] = tree[node*2] + tree[node*2+1]
+
+def update(node, start, end, idx, val):
+    if start == end:
+        tree[node] = val
+    else:
+        mid = (start + end) // 2
+        if idx <= mid: update(node*2,   start, mid,   idx, val)
+        else:          update(node*2+1, mid+1, end,   idx, val)
+        tree[node] = tree[node*2] + tree[node*2+1]
+
+def query(node, start, end, left, right):
+    if right < start or end < left: return 0
+    if left <= start and end <= right: return tree[node]
+    mid = (start + end) // 2
+    return (query(node*2,   start, mid,   left, right) +
+            query(node*2+1, mid+1, end,   left, right))
 
 # 사용
 arr = [1, 2, 3, 4, 5]
-st = SegmentTree(arr)
+N = len(arr)
+tree = [0] * (4 * N)
+build(arr, 1, 0, N-1)
 
-# arr[1:4] 구간 합 (0-indexed)
-st.query(1, 0, st.n-1, 1, 3)   # 9
-
-# arr[2] = 10으로 업데이트
-st.update(1, 0, st.n-1, 2, 10)
+query(1, 0, N-1, 1, 3)   # arr[1:4] 구간 합 = 9
+update(1, 0, N-1, 2, 10)  # arr[2] = 10
+query(1, 0, N-1, 1, 3)   # 16
 ```
 
-### 최솟값 세그먼트 트리
+### 클래스형 (호출 단순화, 트리 2개 이상 쓸 때 유용)
 ```python
 import sys
 
-class MinSegmentTree:
-    def __init__(self, arr):
-        self.n = len(arr)
-        self.tree = [sys.maxsize] * (4 * self.n)
-        self.build(arr, 1, 0, self.n - 1)
+class SegmentTree:
+    def __init__(self, arr, func=sum, default=0):
+        self.n       = len(arr)
+        self.func    = func      # sum, min, max 등 연산 함수
+        self.default = default   # 범위 벗어날 때 반환값
+        self.tree    = [default] * (4 * self.n)
+        self._build(arr, 1, 0, self.n - 1)
 
-    def build(self, arr, node, start, end):
+    def _build(self, arr, node, start, end):
         if start == end:
             self.tree[node] = arr[start]
         else:
             mid = (start + end) // 2
-            self.build(arr, node*2,   start, mid)
-            self.build(arr, node*2+1, mid+1, end)
-            self.tree[node] = min(self.tree[node*2], self.tree[node*2+1])
+            self._build(arr, node*2,   start, mid)
+            self._build(arr, node*2+1, mid+1, end)
+            self.tree[node] = self.func([self.tree[node*2], self.tree[node*2+1]])
 
-    def update(self, node, start, end, idx, val):
+    def _update(self, node, start, end, idx, val):
         if start == end:
             self.tree[node] = val
         else:
             mid = (start + end) // 2
-            if idx <= mid:
-                self.update(node*2,   start, mid,   idx, val)
-            else:
-                self.update(node*2+1, mid+1, end,   idx, val)
-            self.tree[node] = min(self.tree[node*2], self.tree[node*2+1])
+            if idx <= mid: self._update(node*2,   start, mid,   idx, val)
+            else:          self._update(node*2+1, mid+1, end,   idx, val)
+            self.tree[node] = self.func([self.tree[node*2], self.tree[node*2+1]])
 
-    def query(self, node, start, end, left, right):
-        if right < start or end < left:
-            return sys.maxsize
-        if left <= start and end <= right:
-            return self.tree[node]
+    def _query(self, node, start, end, left, right):
+        if right < start or end < left: return self.default
+        if left <= start and end <= right: return self.tree[node]
         mid = (start + end) // 2
-        return min(self.query(node*2,   start, mid,   left, right),
-                   self.query(node*2+1, mid+1, end,   left, right))
+        return self.func([self._query(node*2,   start, mid,   left, right),
+                          self._query(node*2+1, mid+1, end,   left, right)])
+
+    # 외부 호출은 이것만 사용 (node, start, end 안 넘겨도 됨)
+    def update(self, idx, val):
+        self._update(1, 0, self.n - 1, idx, val)
+
+    def query(self, left, right):
+        return self._query(1, 0, self.n - 1, left, right)
+
+# 사용
+arr = [1, 2, 3, 4, 5]
+
+st_sum = SegmentTree(arr, func=sum, default=0)            # 구간 합
+st_min = SegmentTree(arr, func=min, default=sys.maxsize)  # 구간 최솟값
+st_max = SegmentTree(arr, func=max, default=0)            # 구간 최댓값
+
+st_sum.query(1, 3)   # 9
+st_min.query(1, 3)   # 2
+st_max.query(1, 3)   # 4
+
+st_sum.update(2, 10)  # arr[2] = 10
+st_sum.query(1, 3)    # 16
 ```
 
 ## 5. 세그먼트 트리 vs 펜윅 트리

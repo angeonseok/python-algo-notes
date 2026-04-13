@@ -24,52 +24,83 @@
 
 ## 4. 기본 코드 (Python)
 
-### 기본 구현
+### 함수형 (전역 배열, 코테 권장)
+```python
+N = 0
+tree = []
+
+def update(i, delta):
+    while i <= N:
+        tree[i] += delta
+        i += i & (-i)  # 최하위 비트만큼 올라감
+
+def prefix_sum(i):
+    total = 0
+    while i > 0:
+        total += tree[i]
+        i -= i & (-i)  # 최하위 비트 제거
+    return total
+
+def query(left, right):
+    return prefix_sum(right) - prefix_sum(left - 1)
+
+# 사용 (1-indexed)
+arr = [1, 2, 3, 4, 5]
+N = len(arr)
+tree = [0] * (N + 1)
+
+for i, v in enumerate(arr, 1):
+    update(i, v)
+
+query(2, 4)   # 9
+update(3, 5)  # arr[3] += 5
+query(2, 4)   # 14
+```
+
+### 클래스형 (호출 단순화, 트리 2개 이상 쓸 때 유용)
 ```python
 class FenwickTree:
-    def __init__(self, n):
-        self.n = n
-        self.tree = [0] * (n + 1)  # 1-indexed
+    def __init__(self, arr):
+        self.n = len(arr)
+        self.tree = [0] * (self.n + 1)  # 1-indexed
+        for i, v in enumerate(arr, 1):
+            self._update(i, v)
 
-    def update(self, i, delta):
-        # i번 원소에 delta 더하기
+    def _update(self, i, delta):
         while i <= self.n:
             self.tree[i] += delta
-            i += i & (-i)  # 최하위 비트만큼 올라감
+            i += i & (-i)
 
-    def prefix_sum(self, i):
-        # 1~i 구간 합
+    def _prefix_sum(self, i):
         total = 0
         while i > 0:
             total += self.tree[i]
-            i -= i & (-i)  # 최하위 비트 제거
+            i -= i & (-i)
         return total
 
-    def query(self, left, right):
-        # left~right 구간 합
-        return self.prefix_sum(right) - self.prefix_sum(left - 1)
+    # 외부 호출은 이것만 사용
+    def update(self, i, delta):   # 1-indexed, delta만큼 더하기
+        self._update(i, delta)
+
+    def query(self, left, right): # 1-indexed, 구간 합
+        return self._prefix_sum(right) - self._prefix_sum(left - 1)
 
 # 사용
-ft = FenwickTree(5)
 arr = [1, 2, 3, 4, 5]
+ft = FenwickTree(arr)
 
-# 초기화 (1-indexed)
-for i, v in enumerate(arr, 1):
-    ft.update(i, v)
-
-ft.query(2, 4)    # 2+3+4 = 9
-ft.update(3, 5)   # arr[3] += 5 → 3→8
-ft.query(2, 4)    # 2+8+4 = 14
+ft.query(2, 4)   # 9
+ft.update(3, 5)  # arr[3] += 5
+ft.query(2, 4)   # 14
 ```
 
 ### i & (-i) 원리
 ```python
 # i의 최하위 비트 = 담당하는 구간의 크기
-# 예:
-# i=1  → 0001 → 1 & (-1) = 1  → 1개 담당
-# i=2  → 0010 → 2 & (-2) = 2  → 2개 담당
-# i=4  → 0100 → 4 & (-4) = 4  → 4개 담당
-# i=6  → 0110 → 6 & (-6) = 2  → 2개 담당
+# i=1 → 0001 → 1개 담당
+# i=2 → 0010 → 2개 담당
+# i=4 → 0100 → 4개 담당
+# i=6 → 0110 → 2개 담당
 
 # update: i += i & (-i)  → 상위 노드로 이동
 # query:  i -= i & (-i)  → 하위 구간으로 이동
@@ -79,16 +110,14 @@ ft.query(2, 4)    # 2+8+4 = 14
 ```python
 def count_inversions(arr):
     n = len(arr)
-    # 값을 1~n으로 압축 (좌표 압축)
     sorted_arr = sorted(set(arr))
     rank = {v: i+1 for i, v in enumerate(sorted_arr)}
 
-    ft = FenwickTree(n)
+    ft = FenwickTree([0] * n)
     inversions = 0
 
     for v in arr:
         r = rank[v]
-        # 현재 값보다 큰 값 중 이미 처리된 것 = 역전 쌍
         inversions += ft.query(r + 1, n) if r + 1 <= n else 0
         ft.update(r, 1)
 
